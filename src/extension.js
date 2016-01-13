@@ -55,13 +55,13 @@ export default class RootsContentful {
    * @return {Promise} an array for the sorted contentful data
    */
   async setup () {
-    const { opts: { cache, content_types } } = this
+    const { opts, opts: { cache } } = this
     let locals = this.roots.config.locals.contentful
     // return cached locals if possible
     if (cache && Object.keys(locals).length) {
       return locals
     }
-    let configuration = await configure_content(content_types)
+    let configuration = await configure_content(opts)
     let content = await get_all_content(configuration)
     await set_urls(content)
     let entries = await transform_entries(content)
@@ -80,10 +80,52 @@ export default class RootsContentful {
  * @param {Array} types - content_types set in app.coffee extension config
  * @return {Promise} - returns an array of configured content types
  */
-async function configure_content (types) {
-  if (is_plain_object(types)) {
-    types = convert_types_to_array(types)
+async function configure_content (opts) {
+  let types = opts.content_types
+  let locales = opts.locale
+  let locale_prefixes = opts.locales_prefix || null
+  let global_locale = false
+
+  async function set_all_locales_if_wildcard (locales) {
+    if (locales === '*') {
+      locales = await fetch_all_locales()
+    }
+    return locales
   }
+
+  function set_type_locale_prefixes (types, locales) {
+    if (typeof opts.locale === 'string') {
+      global_locale = true
+    }
+    // duplicate & update type to contain locale's data
+    if (Array.isArray(locales)) {
+      for (let locale of locales) {
+        for (let type of types) {
+          const prefix = locale_prefixes != null
+            ? locale_prefixes[locale]
+            : `${locale.replace(/-/, '_')}_`
+          // type's locale overrides global locale
+          if (type.locale == null) {
+            // create clone
+            let tmp = { ...type, locale, prefix }
+            // add to types
+            types.push(tmp)
+          } else {
+            // set prefix only if it isn't set
+            type.prefix = type.prefix || prefix
+          }
+        }
+      }
+      // remove dupes w/o locale
+      types = types.filter(t => t.locale != null)
+    }
+    return types
+  }
+
+  locales = await set_all_locales_if_wildcard(locales)
+  types = convert_types_to_array(types)
+  types = set_type_locale_prefixes(types, locales)
+
   return types.map(async type => {
     const { id, name, filters, template, path } = type
     if (!id) throw new Error(errors.no_type_id)
@@ -91,9 +133,18 @@ async function configure_content (types) {
     if (!name || (template && !path)) {
       let content_type = await client.contentType(id)
       type.name = name || pluralize(underscored(content_type.name))
-      if (template) {
+      if (locale_prefixes != null) {
+        type.name = type.prefix + type.name
+      }
+      if (template || locale_prefixes != null) {
         type.path = path || (entry => `${name}/${slugify(entry[content_type.displayField])}`)
       }
+    }
+    if (locale_prefixes != null) {
+      type.name = type.prefix + type.name
+    }
+    if (global_locale) {
+      type.locale = type.locale || opts.locale
     }
     return type
   })
@@ -106,10 +157,13 @@ async function configure_content (types) {
  * @return {Promise} - returns an array of content types
  */
 function convert_types_to_array (types) {
-  return Object.keys(types).reduce((results, key) => {
-    results.push({ ...types[key], name: key })
-    return results
-  }, [])
+  if (is_plain_object(types)) {
+    return Object.keys(types).reduce((results, key) => {
+      results.push({ ...types[key], name: key })
+      return results
+    }, [])
+  }
+  return types
 }
 
 /**
@@ -131,13 +185,24 @@ async function get_all_content (types) {
  * @param {Object} type - content type object
  * @return {Promise} - returns response from Contentful API
  */
-async function fetch_content ({ id, filters }) {
+async function fetch_content ({ id, filters, locale }) {
   let entries = await client.entries({
     ...filters,
     content_type: id,
-    include: 10
+    include: 10,
+    locale
   })
   return entries
+}
+
+/**
+ * Fetch all locales in space
+ * Used when `*` is used in opts.locales
+ * @return {Array} locales
+ */
+async function fetch_all_locales () {
+  let res = await client.space()
+  return res.locales.map(locale => locale.code)
 }
 
 /**
@@ -160,6 +225,9 @@ function format_entry (entry) {
     throw new Error(errors.sys_conflict)
   }
   let formatted = { ...entry, ...entry.fields }
+  if (formatted.sys != null) {
+    delete formatted.sys
+  }
   delete formatted.fields
   return formatted
 }
@@ -194,10 +262,15 @@ async function set_urls (types) {
  * @return {Promise} - promise for when complete
  */
 async function set_locals (types) {
+  let contentful = this.roots.config.locals.contentful
   types = await Promise.all(types)
   return types.map(({ name, content }) => {
-    this.roots.config.locals.contentful[name] = content
-    return content
+    if (contentful[name]) {
+      contentful[name].push(content[0])
+    } else {
+      contentful[name] = content
+    }
+    return contentful[name]
   })
 }
 
