@@ -20,6 +20,9 @@ hosts =
   production: 'cdn.contentful.com'
 
 module.exports = (opts) ->
+  # default namespace
+  opts.namespace ?= 'contentful'
+
   # throw error if missing required config
   if not (opts.access_token && opts.space_id)
     throw new Error errors.no_token
@@ -37,16 +40,15 @@ module.exports = (opts) ->
     constructor: (@roots) ->
       @util = new RootsUtil(@roots)
       @roots.config.locals ?= {}
-      @roots.config.locals.contentful ?= {}
       @roots.config.locals.asset = asset_view_helper
 
     setup: ->
       configure_content(opts.content_types).with(@)
         .then(get_all_content)
-        .tap(set_urls)
         .then(transform_entries)
         .then(sort_entries)
         .tap(set_locals)
+        .tap(set_urls)
         .tap(compile_entries)
         .tap(write_entries)
 
@@ -137,9 +139,9 @@ module.exports = (opts) ->
     ###
 
     set_urls = (types) ->
-      W.map types, (t) ->
-        if t.template then W.map t.content, (entry) ->
-          paths = t.path(entry)
+      W.map types, (t) =>
+        if t.template then W.map t.content, (entry) =>
+          paths = t.path(entry, _.cloneDeep(@roots.config.locals))
           paths = [paths] if _.isString(paths)
           entry._urls = ("/#{p}.html" for p in paths)
           entry._url = if entry._urls.length is 1 then entry._urls[0] else null
@@ -152,7 +154,14 @@ module.exports = (opts) ->
 
     set_locals = (types) ->
       W.map types, (t) =>
-        @roots.config.locals.contentful[t.name] = t.content
+
+        namespace =  if t.namespace then t.namespace else opts.namespace
+        @roots.config.locals[namespace] ?= {}
+
+        locals_data = t.content
+        if t.set_locals and typeof t.set_locals == 'function'
+          locals_data = t.set_locals(t)
+        @roots.config.locals[namespace][t.name] = locals_data
 
     ###*
      * Transforms every type with content with the user provided callback

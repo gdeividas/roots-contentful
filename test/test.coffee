@@ -186,6 +186,46 @@ describe 'data manipulation', ->
 
     after -> unmock_contentful()
 
+  describe 'custom namespace', ->
+    before (done) ->
+      @title = 'Throw Some Ds'
+      @body  = 'Rich Boy selling crack'
+      @title_2 = 'Yes sir'
+      @body_2 = 'No mum'
+
+      mock_contentful
+        entries: [
+          {fields: {title: @title, body: @body}}
+          {fields: {title: @title_2, body: @body_2}}
+        ]
+      compile_fixture.call(@, 'namespace').then(-> done()).catch(done)
+
+    it 'has contentful data available in views under a custom global namespace', ->
+      p = path.join(@public, 'index.html')
+      h.file.contains(p, @title).should.be.true
+      h.file.contains(p, @body).should.be.true
+
+    it 'has contentful data available in views under a custom local(type) namespace', ->
+      p = path.join(@public, 'index.html')
+      h.file.contains(p, @title_2).should.be.true
+      h.file.contains(p, @body_2).should.be.true
+
+    after -> unmock_contentful()
+
+  describe 'set_locals', ->
+    before (done) ->
+      @title = 'Throw Some Ds'
+      @body  = 'Rich Boy selling crack'
+
+      mock_contentful entries: [{fields: {title: @title, body: @body}}]
+      compile_fixture.call(@, 'set_locals').then(-> done()).catch(done)
+
+    it 'can set custom content_type locals', ->
+      p = path.join(@public, 'index.html')
+      h.file.contains(p, @body).should.be.true
+
+    after -> unmock_contentful()
+
 describe 'custom name for view helper local', ->
   before (done) ->
     @title = 'Throw Some Ds'

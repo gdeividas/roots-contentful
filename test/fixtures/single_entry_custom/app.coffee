@@ -12,7 +12,9 @@ module.exports =
           id: '6BYT1gNiIEyIw8Og8aQAO6'
           name: 'blog_posts'
           template: 'views/_blog_post.jade'
-          path: (e) -> "blogging/#{e.category}/#{S(e.title).slugify().s}"
+          path: (e, locals) ->
+            category = locals.contentful['blog_posts'][0].category
+            return "blogging/#{category}/#{S(e.title).slugify().s}"
         }
       ]
     )

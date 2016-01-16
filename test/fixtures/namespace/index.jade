@@ -1,0 +1,10 @@
+ul
+  - for p in custom.blog_posts
+    li
+      h1= p.title
+      p= p.body
+  
+  - for p in custom2.blog_posts
+     li
+       h1= p.title_2
+       p= p.body_2
