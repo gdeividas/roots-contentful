@@ -130,6 +130,13 @@ describe 'data caching', ->
     h.file.contains(p_index, @title).should.be.true
     h.file.contains(p_index, @body).should.be.true
 
+  it 'cache function should read exists and write new cache file', ->
+    p_cache_posts = path.join(@public, 'cache_posts.json')
+    h.file.exists(p_cache_posts).should.be.ok
+    h.file.contains(p_cache_posts, @title).should.be.true
+    h.file.contains(p_cache_posts, @body).should.be.true
+
+
   after -> unmock_contentful()
 
 describe 'data manipulation', ->

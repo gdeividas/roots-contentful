@@ -14,6 +14,12 @@ module.exports =
           id: '6BYT1gNiIEyIw8Og8aQAO2',
           read_raw: 'test/fixtures/cache/index.json'
           write_raw: 'test/fixtures/cache/public/raw_posts.json'
-
+        cache:
+          id: '6BYT1gNiIEyIw8Og8aQAO2',
+          cache: (type) ->
+            return {
+              read: 'test/fixtures/cache/index.json'
+              write: 'test/fixtures/cache/public/cache_posts.json'
+            }
     )
   ]

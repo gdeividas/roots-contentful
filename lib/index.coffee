@@ -106,9 +106,9 @@ module.exports = (opts) ->
           t.write_raw ?= cache
           t.read_raw ?= cache
         else if typeof cache == 'function'
-          cacheFilePath = cache(t)
-          t.write_raw ?= cacheFilePath
-          t.read_raw ?= cacheFilePath
+          cacheFilePaths = cache(t)
+          t.write_raw ?= cacheFilePaths.write
+          t.read_raw ?= cacheFilePaths.read
         else if typeof cache == 'boolean' and cache == true
           t.write_raw ?= path.join(@roots.config.output_path(), "#{t.name}.json")
           t.read_raw ?= path.join(@roots.config.output_path(), "#{t.name}.json")
