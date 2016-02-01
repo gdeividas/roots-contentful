@@ -116,7 +116,8 @@ module.exports = (opts) ->
 
         read_file_exists = W(false)
         if t.read_raw?
-          read_file_exists = nodefn.call(fs.stat, t.read_raw)
+          readFrom = if typeof t.read_raw == 'function' then t.read_raw(t) else t.read_raw
+          read_file_exists = nodefn.call(fs.stat, readFrom)
 
         read_file_exists.then (exists) ->
 
@@ -263,11 +264,13 @@ module.exports = (opts) ->
      * @return {Promise} - promise for when compilation is finished
     ###
 
-    write_raw = (type) ->
-      if not type.write_raw then return W.resolve()
+    write_raw = (t) ->
+      if not t.write_raw then return W.resolve()
 
-      nodefn.call(mkdirp, path.dirname(type.write_raw))
-        .then(-> nodefn.call(fs.writeFile, type.write_raw, JSON.stringify(type)))
+      writeTo = if typeof t.write_raw == 'function' then t.write_raw(t) else t.write_raw
+
+      nodefn.call(mkdirp, path.dirname(writeTo))
+        .then(-> nodefn.call(fs.writeFile, writeTo , JSON.stringify(t)))
 
 
     ###*
