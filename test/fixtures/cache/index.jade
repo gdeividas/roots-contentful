@@ -1,0 +1,10 @@
+ul
+  - for p in contentful.index
+    li
+      h1= p.title
+      p= p.body
+  
+  - for p in contentful.read
+     li
+       h1= p.title
+       p= p.body

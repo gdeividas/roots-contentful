@@ -111,6 +111,27 @@ describe 'write as json', ->
 
   after -> unmock_contentful()
 
+describe 'data caching', ->
+  before (done) ->
+    @title = 'Throw Some Ds'
+    @body  = 'Rich Boy selling crick'
+    mock_contentful(entries: [{fields: {title: @title, body: @body}}])
+    compile_fixture.call(@, 'cache').then(-> done()).catch(done)
+
+  it 'compiles project', ->
+    p = path.join(@public, 'index.html')
+    h.file.exists(p).should.be.ok
+
+  it 'writes and reads cache files correctly', ->
+    p_index = path.join(@public, 'index.json')
+    p_posts = path.join(@public, 'raw_posts.json')
+    h.file.exists(p_index).should.be.ok
+    h.file.exists(p_posts).should.be.ok
+    h.file.contains(p_index, @title).should.be.true
+    h.file.contains(p_index, @body).should.be.true
+
+  after -> unmock_contentful()
+
 describe 'data manipulation', ->
   describe 'sort', ->
     before (done) ->

@@ -6,6 +6,9 @@ contentful  = require 'contentful'
 pluralize   = require 'pluralize'
 RootsUtil   = require 'roots-util'
 querystring = require 'querystring'
+nodefn      = require 'when/node'
+fs          = require 'fs'
+mkdirp      = require 'mkdirp'
 
 errors =
   no_token: 'Missing required options for roots-contentful. Please ensure
@@ -22,6 +25,7 @@ hosts =
 module.exports = (opts) ->
   # default namespace
   opts.namespace ?= 'contentful'
+  opts.cache ?= false
 
   # throw error if missing required config
   if not (opts.access_token && opts.space_id)
@@ -86,6 +90,7 @@ module.exports = (opts) ->
         res
       , []
 
+
     ###*
      * Fetches data from Contentful for content types, and formats the raw data
      * @param {Array} types - configured content_type objects
@@ -93,11 +98,41 @@ module.exports = (opts) ->
     ###
 
     get_all_content = (types) ->
-      W.map types, (t) ->
-        fetch_content(t)
-          .then(format_content)
-          .then((c) -> t.content = c)
-          .yield(t)
+      W.map types, (t) =>
+
+        cache = t.cache ? opts.cache
+
+        if typeof cache == 'string'
+          t.write_raw ?= cache
+          t.read_raw ?= cache
+        else if typeof cache == 'function'
+          cacheFilePath = cache(t)
+          t.write_raw ?= cacheFilePath
+          t.read_raw ?= cacheFilePath
+        else if typeof cache == 'boolean' and cache == true
+          t.write_raw ?= path.join(@roots.config.output_path(), "#{t.name}.json")
+          t.read_raw ?= path.join(@roots.config.output_path(), "#{t.name}.json")
+
+
+        read_file_exists = W(false)
+        if t.read_raw?
+          read_file_exists = nodefn.call(fs.stat, t.read_raw)
+
+        read_file_exists.then (exists) ->
+
+          del t.write_raw
+          nodefn.call(fs.readFile, read_file_path)
+          .then (data) ->
+            JSON.parse(data)
+
+        .catch ->
+            fetch_content(t)
+
+        .then(format_content)
+        .then((c) -> t.content = c)
+        .yield(t)
+        .tap(write_raw)
+
 
     ###*
      * Fetch entries for a single content type object
@@ -221,6 +256,19 @@ module.exports = (opts) ->
       W.map types, (t) =>
         if not t.write then return W.resolve()
         @util.write(t.write, JSON.stringify(t.content))
+
+    ###*
+     * Writes all data returned from contentful as json
+     * @param {Array} types - Populated content type objects
+     * @return {Promise} - promise for when compilation is finished
+    ###
+
+    write_raw = (type) ->
+      if not type.write_raw then return W.resolve()
+
+      nodefn.call(mkdirp, path.dirname(type.write_raw))
+        .then(-> nodefn.call(fs.writeFile, type.write_raw, JSON.stringify(type)))
+
 
     ###*
      * View helper for accessing the actual url from a Contentful asset
