@@ -115,7 +115,7 @@ module.exports = (opts) ->
 
 
         read_file_exists = W(false)
-        if t.read_raw?
+        if t.read_raw
           readFrom = if typeof t.read_raw == 'function' then t.read_raw(t) else t.read_raw
           read_file_exists = nodefn.call(fs.stat, readFrom)
 
