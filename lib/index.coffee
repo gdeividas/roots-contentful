@@ -121,11 +121,17 @@ module.exports = (opts) ->
 
         read_file_exists.then (exists) ->
 
-          del t.write_raw
-          nodefn.call(fs.readFile, read_file_path)
+          if not exists
+            return throw new Error('Cache file does not exists. Fetching from External.')
+
+          #no need to write cache as its the same data..
+          delete t.write_raw
+          
+          nodefn.call(fs.readFile, readFrom)
           .then (data) ->
             JSON.parse(data)
 
+        #fetch data from external if cache file not found
         .catch ->
             fetch_content(t)
 
